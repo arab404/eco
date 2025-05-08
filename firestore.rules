@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User profiles
+    match /users/{userId} {
+      // Users can read any profile
+      allow read: if request.auth != null;
+      
+      // Users can only write to their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // Subcollections
+      match /tokens/{tokenId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Matches
+    match /matches/{matchId} {
+      // Users can only access matches they are part of
+      allow read, write: if request.auth != null && 
+        request.auth.uid in resource.data.participants;
+      
+      // Messages in matches
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null && 
+          get(/databases/$(database)/documents/matches/$(matchId)).data.participants[request.auth.uid] != null;
+      }
+    }
+    
+    // User preferences
+    match /preferences/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Admin-only collections
+    match /admin/{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}

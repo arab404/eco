@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile images
+    match /profile_images/{userId}/{allImages=**} {
+      // Anyone can view profile images
+      allow read: if request.auth != null;
+      
+      // Only the owner can upload their profile images
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Chat images
+    match /chat_images/{matchId}/{allImages=**} {
+      // Only participants in the match can view and upload chat images
+      allow read, write: if request.auth != null && 
+        exists(/databases/$(database)/documents/matches/$(matchId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.participants;
+    }
+  }
+}
